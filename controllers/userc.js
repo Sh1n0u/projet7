@@ -17,3 +17,19 @@ exports.signup = async (req, res) => {
     }
 };
 
+exports.login = async (req, res) => {
+    try {
+        const user = await User.findOne({ email: req.body.email });
+        if (!user) {
+            return res.status(401).json({ message: 'Paire login/mot de passe incorrecte' });
+        }
+        const isPasswordValid = await bcrypt.compare(req.body.password, user.password);
+        if (!isPasswordValid) {
+            return res.status(401).json({ message: 'Paire login/mot de passe incorrecte' });
+        }
+        const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '24h' });
+        res.status(200).json({ userId: user._id, token });
+    } catch (error) {
+        res.status(500).json({ error: 'Une erreur est survenue lors de la connexion' });
+    }
+};
