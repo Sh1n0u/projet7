@@ -1,6 +1,6 @@
 const Book = require('../models/Book');
-const fs = require('fs')
-const path = require('path')
+const fs = require('fs');
+const path = require('path');
 // création de livre
 exports.createBook = (request, response, next) => {
     const bookObject = JSON.parse(request.body.book);
@@ -22,14 +22,12 @@ exports.createBook = (request, response, next) => {
         });
 };
 
-
 // Affichage de tout les livres
 exports.getAllBook = (request, response, next) => {
     Book.find()
         .then((books) => response.status(200).json(books))
         .catch((error) => response.status(500).json({ error }));
 };
-
 
 // Affichage d'un livre sélectionné
 exports.getOneBook = (request, response, next) => {
@@ -84,10 +82,12 @@ exports.updateBook = (request, response, next) => {
     // Vérifier si l'utilisateur courant est celui qui a posté le livre
     Book.findOne({ _id: bookId, userId: request.auth.userId })
         .then((book) => {
-            const oldImagePath = path.join(__dirname, '..', 'images', path.basename(book.imageUrl));
             if (!book) {
                 return response.status(404).json({ message: 'Livre non trouvé ou accès interdit !' });
             }
+
+            // Sauvegarder le chemin de l'ancien fichier image
+            const oldImagePath = path.join(__dirname, '..', 'images', path.basename(book.imageUrl));
 
             // Si une image est téléchargée, mettre à jour l'imageUrl du livre
             if (request.file) {
@@ -109,10 +109,17 @@ exports.updateBook = (request, response, next) => {
                 book.genre = request.body.genre;
             }
 
-            // Sauvegarder les modifications dans la base de données en utilisant findOneAndUpdate avec l'option overwrite: true
-            Book.findOneAndUpdate({ _id: bookId }, book, { overwrite: true })
-                fs.unlink(oldImagePath)
+            // Sauvegarder les modifications dans la base de données
+            return book.save()
                 .then(() => {
+                    if (request.file) {
+                        // Supprimer l'ancienne image après avoir enregistré les modifications
+                        fs.unlink(oldImagePath, (error) => {
+                            if (error) {
+                                console.error('Erreur lors de la suppression de l\'ancien fichier image :', error);
+                            }
+                        });
+                    }
                     response.status(200).json({ message: 'Livre mis à jour avec succès.' });
                 })
                 .catch((error) => {
