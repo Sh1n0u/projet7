@@ -1,5 +1,6 @@
 const Book = require('../models/Book');
-
+const fs = require('fs')
+const path = require('path')
 // création de livre
 exports.createBook = (request, response, next) => {
     const bookObject = JSON.parse(request.body.book);
@@ -59,9 +60,11 @@ exports.deleteBook = (request, response, next) => {
                     .json({ message: "Accès interdit. Vous n'êtes pas autorisé à supprimer ce livre." });
             }
 
-            // Si l'utilisateur est autorisé, supprimer le livre
+            // Supprimer le livre de la base de données
+            const imagePath = path.join(__dirname, '..', 'images', path.basename(book.imageUrl));
             Book.findByIdAndRemove(bookId)
                 .then(() => {
+                    fs.unlinkSync(imagePath);
                     response.status(200).json({ message: 'Livre supprimé avec succès.' });
                 })
                 .catch((error) => {
@@ -81,6 +84,7 @@ exports.updateBook = (request, response, next) => {
     // Vérifier si l'utilisateur courant est celui qui a posté le livre
     Book.findOne({ _id: bookId, userId: request.auth.userId })
         .then((book) => {
+            const oldImagePath = path.join(__dirname, '..', 'images', path.basename(book.imageUrl));
             if (!book) {
                 return response.status(404).json({ message: 'Livre non trouvé ou accès interdit !' });
             }
@@ -107,6 +111,7 @@ exports.updateBook = (request, response, next) => {
 
             // Sauvegarder les modifications dans la base de données en utilisant findOneAndUpdate avec l'option overwrite: true
             Book.findOneAndUpdate({ _id: bookId }, book, { overwrite: true })
+                fs.unlink(oldImagePath)
                 .then(() => {
                     response.status(200).json({ message: 'Livre mis à jour avec succès.' });
                 })
