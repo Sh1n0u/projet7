@@ -30,7 +30,7 @@ mongoose
     })
     .then(() => console.log('Connexion à MongoDB réussie !'))
     .catch((error) => console.log('Connexion à MongoDB échouée !', error));
-
+process.env.IMAGE_DIR = __dirname + '/images/';
 app.use(express.json());
 app.use('/api', userRoutes);
 app.use('/api', bookRoutes);
