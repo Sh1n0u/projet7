@@ -1,6 +1,7 @@
 const Book = require('../models/Book');
 const fs = require('fs');
 const path = require('path');
+
 // création de livre
 exports.createBook = (request, response, next) => {
     const bookObject = JSON.parse(request.body.book);
@@ -59,7 +60,7 @@ exports.deleteBook = (request, response, next) => {
             }
 
             // Supprimer le livre de la base de données
-            const imagePath = path.join(__dirname, '..', 'images', path.basename(book.imageUrl));
+            const imagePath = path.join(process.env.IMAGE_DIR, path.basename(book.imageUrl));
             Book.findByIdAndRemove(bookId)
                 .then(() => {
                     fs.unlinkSync(imagePath);
@@ -74,8 +75,6 @@ exports.deleteBook = (request, response, next) => {
         });
 };
 
-//
-
 exports.updateBook = (request, response, next) => {
     const bookId = request.params.id;
 
@@ -87,7 +86,7 @@ exports.updateBook = (request, response, next) => {
             }
 
             // Sauvegarder le chemin de l'ancien fichier image
-            const oldImagePath = path.join(__dirname, '..', 'images', path.basename(book.imageUrl));
+            const oldImagePath = path.join(process.env.IMAGE_DIR, path.basename(book.imageUrl));
 
             // Si une image est téléchargée, mettre à jour l'imageUrl du livre
             if (request.file) {
@@ -110,13 +109,14 @@ exports.updateBook = (request, response, next) => {
             }
 
             // Sauvegarder les modifications dans la base de données
-            return book.save()
+            return book
+                .save()
                 .then(() => {
                     if (request.file) {
                         // Supprimer l'ancienne image après avoir enregistré les modifications
                         fs.unlink(oldImagePath, (error) => {
                             if (error) {
-                                console.error('Erreur lors de la suppression de l\'ancien fichier image :', error);
+                                console.error("Erreur lors de la suppression de l'ancien fichier image :", error);
                             }
                         });
                     }
@@ -162,9 +162,33 @@ exports.getTopRatedBooks = (request, response, next) => {
         });
 };
 
-// exports.addRating = (request, response, next) => {
-//     const bookId = request.params.id;
-//     const { userId, grade } = request.body;
+exports.addRating = async (request, response, next) => {
+    const bookId = request.params.id;
+    const { userId, rating } = request.body;
 
-//     Book.findById()
-// };
+    try {
+        // Rechercher le livre par ID
+        const book = await Book.findById(bookId);
+
+        if (!book) {
+            return response.status(404).json({ error: "Livre introuvable" });
+        }
+
+        book.ratings.push({ userId, grade: rating });
+
+        // Calculer la nouvelle note moyenne pour le livre
+        const totalRatings = book.ratings.length;
+        const currentTotal = book.ratings.reduce((sum, item) => sum + item.grade, 0);
+        const newAverageRating = currentTotal / totalRatings;
+        book.averageRating = newAverageRating;
+
+        // Sauvegarder les modifications dans la base de données
+        const updatedBook = await book.save();
+
+        console.log('Livre mis à jour:', updatedBook);
+        response.status(201).json(updatedBook);
+    } catch (error) {
+        console.log('Erreur lors de la mise à jour du livre:', error);
+        response.status(500).json({ error: "Erreur lors de la mise à jour du livre" });
+    }
+};
