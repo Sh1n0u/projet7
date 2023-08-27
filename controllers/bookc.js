@@ -19,6 +19,8 @@ exports.createBook = (request, response, next) => {
             response.status(201).json({ message: 'Objet enregistré !' });
         })
         .catch((error) => {
+            const imagePath = path.join(process.env.IMAGE_DIR, path.basename(book.imageUrl));
+            fs.unlink(imagePath)
             response.status(400).json({ error });
         });
 };
@@ -82,6 +84,8 @@ exports.updateBook = (request, response, next) => {
     Book.findOne({ _id: bookId, userId: request.auth.userId })
         .then((book) => {
             if (!book) {
+                const imagePath = path.join(process.env.IMAGE_DIR, path.basename(book.imageUrl));
+                fs.unlink(imagePath)
                 return response.status(404).json({ message: 'Livre non trouvé ou accès interdit !' });
             }
 
@@ -123,15 +127,20 @@ exports.updateBook = (request, response, next) => {
                     response.status(200).json({ message: 'Livre mis à jour avec succès.' });
                 })
                 .catch((error) => {
+                    const imagePath = path.join(process.env.IMAGE_DIR, path.basename(book.imageUrl));
+            fs.unlink(imagePath)
                     response.status(500).json({ error });
                 });
         })
         .catch((error) => {
+            const imagePath = path.join(process.env.IMAGE_DIR, path.basename(book.imageUrl));
+            fs.unlink(imagePath)
             response.status(500).json({ error });
         });
 };
 
 exports.getTopRatedBooks = (request, response, next) => {
+    //A tester Book.find().sort({averageRating: -1}).limit(3).then()
     Book.aggregate([
         {
             $match: { averageRating: { $gt: 0 } }, // Filtrer les livres avec une note moyenne supérieure à zéro
@@ -171,24 +180,20 @@ exports.addRating = async (request, response, next) => {
         const book = await Book.findById(bookId);
 
         if (!book) {
-            return response.status(404).json({ error: "Livre introuvable" });
+            return response.status(404).json({ error: 'Livre introuvable' });
         }
 
         book.ratings.push({ userId, grade: rating });
 
-        // Calculer la nouvelle note moyenne pour le livre
         const totalRatings = book.ratings.length;
         const currentTotal = book.ratings.reduce((sum, item) => sum + item.grade, 0);
         const newAverageRating = currentTotal / totalRatings;
         book.averageRating = newAverageRating;
 
-        // Sauvegarder les modifications dans la base de données
         const updatedBook = await book.save();
 
-        console.log('Livre mis à jour:', updatedBook);
         response.status(201).json(updatedBook);
     } catch (error) {
-        console.log('Erreur lors de la mise à jour du livre:', error);
-        response.status(500).json({ error: "Erreur lors de la mise à jour du livre" });
+        response.status(500).json({ error: 'Erreur lors de la mise à jour du livre' });
     }
 };
